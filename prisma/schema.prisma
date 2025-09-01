@@ -1,0 +1,144 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String        @id @default(cuid())
+  email         String        @unique
+  password      String
+  firstName     String
+  lastName      String
+  role          String        @default("recruiter") // recruiter, hiring_manager, admin
+  department    String?
+  avatarUrl     String?
+  interviews    Interview[]   @relation("Interviewer")
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model Job {
+  id              String        @id @default(cuid())
+  title           String
+  department      String
+  location        String
+  employmentType  String        // full-time, part-time, contract, internship
+  experienceLevel String        // entry, mid, senior, lead, executive
+  salaryMin       Int?
+  salaryMax       Int?
+  description     String
+  requirements    Json          // Array of requirements
+  skillsRequired  Json          // Array of required skills
+  skillsPreferred Json?         // Array of preferred skills
+  benefits        Json?
+  status          String        @default("open") // open, paused, closed, filled
+  applications    Application[]
+  hiringManagerId String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model Candidate {
+  id              String        @id @default(cuid())
+  email           String        @unique
+  firstName       String
+  lastName        String
+  phone           String?
+  location        String?
+  linkedinUrl     String?
+  portfolioUrl    String?
+  resumeUrl       String?
+  resumeText      String?
+  parsedResume    Json?         // Structured resume data from AI
+  skills          Json?         // Array of skills
+  experienceYears Decimal?
+  currentTitle    String?
+  currentCompany  String?
+  education       Json?         // Array of education entries
+  source          String?       // linkedin, indeed, referral, website, etc.
+  tags            Json?         // Custom tags
+  applications    Application[]
+  notes           CandidateNote[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model Application {
+  id              String        @id @default(cuid())
+  jobId           String
+  job             Job           @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  candidateId     String
+  candidate       Candidate     @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  status          String        @default("applied") // applied, screening, interview, offer, hired, rejected
+  stage           String        @default("resume_review") // resume_review, phone_screen, technical, onsite, offer
+  matchScore      Decimal?      // 0-100 AI match score
+  matchDetails    Json?         // Breakdown of match scoring
+  coverLetter     String?
+  referralSource  String?
+  rejectionReason String?
+  interviews      Interview[]
+  evaluations     Evaluation[]
+  appliedAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([jobId, candidateId])
+}
+
+model Interview {
+  id              String        @id @default(cuid())
+  applicationId   String
+  application     Application   @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  interviewerId   String
+  interviewer     User          @relation("Interviewer", fields: [interviewerId], references: [id])
+  interviewType   String        // phone_screen, technical, behavioral, onsite, panel
+  scheduledAt     DateTime
+  durationMinutes Int           @default(60)
+  location        String?       // Office location or "Remote"
+  meetingLink     String?       // Zoom/Teams link
+  status          String        @default("scheduled") // scheduled, completed, cancelled, no_show
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model Evaluation {
+  id              String        @id @default(cuid())
+  applicationId   String
+  application     Application   @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  evaluatorId     String
+  stage           String        // Stage being evaluated
+  technicalScore  Int?          // 1-5
+  communicationScore Int?       // 1-5
+  cultureFitScore Int?          // 1-5
+  overallScore    Int?          // 1-5
+  recommendation  String?       // strong_yes, yes, neutral, no, strong_no
+  strengths       Json?         // Array of strengths
+  weaknesses      Json?         // Array of weaknesses
+  comments        String?
+  createdAt       DateTime      @default(now())
+}
+
+model CandidateNote {
+  id              String        @id @default(cuid())
+  candidateId     String
+  candidate       Candidate     @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  authorId        String
+  content         String
+  isPrivate       Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+}
+
+model EmailTemplate {
+  id              String        @id @default(cuid())
+  name            String        @unique
+  subject         String
+  body            String
+  type            String        // application_received, interview_scheduled, rejection, offer
+  isActive        Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
