@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  # Frontend (Vite)
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile.client
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:4000/api
+    depends_on:
+      - server
+    networks:
+      - talentflow-network
+
+  # Backend (Express)
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    ports:
+      - "4000:4000"
+    environment:
+      - DATABASE_URL=postgresql://talentflow:talentflow@postgres:5432/talentflow
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - NODE_ENV=production
+      - CLIENT_URL=http://localhost:3000
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - talentflow-network
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: talentflow
+      POSTGRES_PASSWORD: talentflow
+      POSTGRES_DB: talentflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - talentflow-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - talentflow-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  talentflow-network:
+    driver: bridge
